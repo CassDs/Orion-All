@@ -1,0 +1,153 @@
+import type { Competition, Match, Team, TeamMatchRecord } from '../domain/types'
+
+export const serieBCompetition: Competition = {
+  id: 'brasileirao-serie-b-2026',
+  scores365Id: 116,
+  name: 'Brasileirao Serie B',
+  country: 'Brasil',
+  type: 'league',
+  format: 'league_table',
+  season: 2026,
+  level: 2,
+  tagline: 'Fallback local para desenvolvimento quando a API estiver indisponivel',
+  primaryColor: '#005baa',
+  secondaryColor: '#f6d90f',
+  accentColor: '#00a651',
+  logoUrl: 'https://imagecache.365scores.com/image/upload/f_png,w_180,h_180,c_limit,q_auto:eco,d_Competitions:default1.png/v1/Competitions/116',
+  source: 'Fallback local',
+}
+
+export const teams: Team[] = [
+  {
+    id: 'goias',
+    name: 'Goias',
+    shortName: 'Goias',
+    code: 'GOI',
+    country: 'Brasil',
+    city: 'Goiania',
+    stadium: 'Serrinha',
+    teamType: 'club',
+    currentLeagueId: serieBCompetition.id,
+    baseRating: 1588,
+    ratingSource: 'fallback-local',
+    primaryColor: '#007a3d',
+    secondaryColor: '#ffffff',
+  },
+  {
+    id: 'coritiba',
+    name: 'Coritiba',
+    shortName: 'Coritiba',
+    code: 'CFC',
+    country: 'Brasil',
+    city: 'Curitiba',
+    stadium: 'Couto Pereira',
+    teamType: 'club',
+    currentLeagueId: serieBCompetition.id,
+    baseRating: 1576,
+    ratingSource: 'fallback-local',
+    primaryColor: '#006b3f',
+    secondaryColor: '#ffffff',
+  },
+  {
+    id: 'athletico',
+    name: 'Athletico',
+    shortName: 'Athletico',
+    code: 'CAP',
+    country: 'Brasil',
+    city: 'Curitiba',
+    stadium: 'Ligga Arena',
+    teamType: 'club',
+    currentLeagueId: serieBCompetition.id,
+    baseRating: 1612,
+    ratingSource: 'fallback-local',
+    primaryColor: '#d71920',
+    secondaryColor: '#111827',
+  },
+  {
+    id: 'criciuma',
+    name: 'Criciuma',
+    shortName: 'Criciuma',
+    code: 'CRI',
+    country: 'Brasil',
+    city: 'Criciuma',
+    stadium: 'Heriberto Hulse',
+    teamType: 'club',
+    currentLeagueId: serieBCompetition.id,
+    baseRating: 1548,
+    ratingSource: 'fallback-local',
+    primaryColor: '#f6d90f',
+    secondaryColor: '#111827',
+  },
+]
+
+const ratingByTeam = Object.fromEntries(teams.map((team) => [team.id, team.baseRating]))
+
+const record = (
+  teamId: string,
+  opponentId: string,
+  date: string,
+  teamGoals: number,
+  opponentGoals: number,
+  homeAway: TeamMatchRecord['homeAway'],
+  stats: Pick<TeamMatchRecord, 'xgFor' | 'xgAgainst' | 'shotsOnTargetFor' | 'shotsOnTargetAgainst' | 'cornersFor' | 'cornersAgainst'>,
+): TeamMatchRecord => ({
+  matchId: `${teamId}-${opponentId}-${date}`,
+  date,
+  competitionId: serieBCompetition.id,
+  opponentId,
+  opponentRating: ratingByTeam[opponentId],
+  homeAway,
+  teamGoals,
+  opponentGoals,
+  ...stats,
+})
+
+export const recordsByTeam: Record<string, TeamMatchRecord[]> = {
+  goias: [
+    record('goias', 'coritiba', '2026-04-12', 1, 1, 'home', { xgFor: 1.2, xgAgainst: 1.1, shotsOnTargetFor: 4, shotsOnTargetAgainst: 3, cornersFor: 5, cornersAgainst: 4 }),
+    record('goias', 'athletico', '2026-04-19', 0, 1, 'away', { xgFor: 0.8, xgAgainst: 1.5, shotsOnTargetFor: 2, shotsOnTargetAgainst: 5, cornersFor: 3, cornersAgainst: 7 }),
+  ],
+  coritiba: [
+    record('coritiba', 'goias', '2026-04-12', 1, 1, 'away', { xgFor: 1.1, xgAgainst: 1.2, shotsOnTargetFor: 3, shotsOnTargetAgainst: 4, cornersFor: 4, cornersAgainst: 5 }),
+    record('coritiba', 'criciuma', '2026-04-19', 2, 0, 'home', { xgFor: 1.6, xgAgainst: 0.6, shotsOnTargetFor: 5, shotsOnTargetAgainst: 1, cornersFor: 6, cornersAgainst: 2 }),
+  ],
+  athletico: [
+    record('athletico', 'criciuma', '2026-04-12', 2, 1, 'home', { xgFor: 1.9, xgAgainst: 1.0, shotsOnTargetFor: 6, shotsOnTargetAgainst: 3, cornersFor: 7, cornersAgainst: 4 }),
+    record('athletico', 'goias', '2026-04-19', 1, 0, 'home', { xgFor: 1.5, xgAgainst: 0.8, shotsOnTargetFor: 5, shotsOnTargetAgainst: 2, cornersFor: 7, cornersAgainst: 3 }),
+  ],
+  criciuma: [
+    record('criciuma', 'athletico', '2026-04-12', 1, 2, 'away', { xgFor: 1.0, xgAgainst: 1.9, shotsOnTargetFor: 3, shotsOnTargetAgainst: 6, cornersFor: 4, cornersAgainst: 7 }),
+    record('criciuma', 'coritiba', '2026-04-19', 0, 2, 'away', { xgFor: 0.6, xgAgainst: 1.6, shotsOnTargetFor: 1, shotsOnTargetAgainst: 5, cornersFor: 2, cornersAgainst: 6 }),
+  ],
+}
+
+export const matches: Match[] = [
+  {
+    id: 'fallback-r1-goi-cfc',
+    competitionId: serieBCompetition.id,
+    season: 2026,
+    round: 1,
+    kickoff: '2026-04-12T19:00:00.000Z',
+    venue: 'Serrinha',
+    homeTeamId: 'goias',
+    awayTeamId: 'coritiba',
+    status: 'finished',
+    homeGoals: 1,
+    awayGoals: 1,
+    isNeutral: false,
+  },
+  {
+    id: 'fallback-r1-cap-cri',
+    competitionId: serieBCompetition.id,
+    season: 2026,
+    round: 1,
+    kickoff: '2026-04-12T21:30:00.000Z',
+    venue: 'Ligga Arena',
+    homeTeamId: 'athletico',
+    awayTeamId: 'criciuma',
+    status: 'finished',
+    homeGoals: 2,
+    awayGoals: 1,
+    isNeutral: false,
+  },
+]
