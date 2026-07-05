@@ -19,12 +19,29 @@ const availableLeagues = LEAGUES_365.map((league) => ({
   name: league.name,
   country: league.country,
   season: 2026,
+  level: league.level,
   tagline: league.tagline,
   logoUrl: competitionLogoUrl(league.scores365Id),
   primaryColor: league.primaryColor,
   secondaryColor: league.secondaryColor,
   accentColor: league.accentColor,
 }))
+
+const leagueCountries = [...new Set(availableLeagues.map((league) => league.country))]
+
+const countryFlags: Record<string, string> = {
+  Brasil: '🇧🇷',
+}
+
+const countryFlag = (country: string) => countryFlags[country] ?? '🌐'
+
+const divisionLabel = (level: number) => `${level}ª divisão`
+
+const normalizeText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'fallback' | 'error'
 
@@ -332,6 +349,8 @@ function App() {
   const [isBetsCollapsed, setIsBetsCollapsed] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [syncMessage, setSyncMessage] = useState('Escolha uma liga para iniciar')
+  const [leagueSearch, setLeagueSearch] = useState('')
+  const [countryFilter, setCountryFilter] = useState('todos')
   const activeLeagueRef = useRef('')
 
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
@@ -550,36 +569,87 @@ function App() {
   }
 
   if (!selectedLeagueId) {
+    const visibleLeagues = availableLeagues.filter(
+      (league) =>
+        (countryFilter === 'todos' || league.country === countryFilter) &&
+        (leagueSearch.trim() === '' || normalizeText(league.name).includes(normalizeText(leagueSearch))),
+    )
+
     return (
       <main className="league-entry">
-        <section className="entry-minimal-hero">
-          <h1>Escolha sua liga.</h1>
+        <section className="entry-hero-panel">
+          <div>
+            <span className="eyebrow">Orion Prediction</span>
+            <h1>Escolha sua liga</h1>
+            <p>Predições congeladas antes da bola rolar, mercados de aposta e acompanhamento rodada a rodada.</p>
+          </div>
+          <button className="ghost-button compact" type="button" onClick={handleLogout}>Sair</button>
+        </section>
+
+        <section className="league-filters" aria-label="Filtros de liga">
+          <input
+            className="league-search"
+            type="search"
+            placeholder="Buscar liga pelo nome..."
+            value={leagueSearch}
+            onChange={(event) => setLeagueSearch(event.target.value)}
+          />
+          <div className="country-chips" role="tablist" aria-label="Filtrar por país">
+            <button
+              type="button"
+              className={countryFilter === 'todos' ? 'active' : ''}
+              onClick={() => setCountryFilter('todos')}
+            >
+              🌐 Todos os países
+            </button>
+            {leagueCountries.map((country) => (
+              <button
+                key={country}
+                type="button"
+                className={countryFilter === country ? 'active' : ''}
+                onClick={() => setCountryFilter(country)}
+              >
+                {countryFlag(country)} {country}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="league-grid" aria-label="Ligas disponiveis">
-          {availableLeagues.map((league) => (
-            <button
-              className="league-card"
-              key={league.id}
-              style={
-                {
-                  '--league-primary': league.primaryColor,
-                  '--league-secondary': league.secondaryColor,
-                  '--league-accent': league.accentColor,
-                } as CSSProperties
-              }
-              type="button"
-              onClick={() => setSelectedLeagueId(league.id)}
-            >
-              <div className="league-card-header minimal">
-                <span className="league-mark">{league.logoUrl && <img src={league.logoUrl} alt="" />}</span>
+          {visibleLeagues.length === 0 ? (
+            <div className="league-empty">
+              <strong>Nenhuma liga encontrada.</strong>
+              <span>Novas ligas e países serão adicionados em breve.</span>
+            </div>
+          ) : (
+            visibleLeagues.map((league) => (
+              <button
+                className="league-card"
+                key={league.id}
+                style={
+                  {
+                    '--league-primary': league.primaryColor,
+                    '--league-secondary': league.secondaryColor,
+                    '--league-accent': league.accentColor,
+                  } as CSSProperties
+                }
+                type="button"
+                onClick={() => setSelectedLeagueId(league.id)}
+              >
+                <span className="league-card-top">
+                  <span className="league-mark">{league.logoUrl && <img src={league.logoUrl} alt="" />}</span>
+                  <span className="league-cta" aria-hidden="true">→</span>
+                </span>
                 <span className="league-copy">
                   <strong>{league.name}</strong>
-                  <small>{league.country}</small>
+                  <small>
+                    {countryFlag(league.country)} {league.country} · {divisionLabel(league.level)} · Temporada {league.season}
+                  </small>
+                  <em>{league.tagline}</em>
                 </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          )}
         </section>
       </main>
     )
