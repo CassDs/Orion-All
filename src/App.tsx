@@ -758,9 +758,13 @@ function App() {
             <span>Rodada {selectedRound}</span>
             <strong>{visiblePredictions.length} jogos</strong>
           </div>
-          {visiblePredictions.map((prediction) => (
+          {visiblePredictions.map((prediction) => {
+            const result = actualResult(prediction)
+            const resultClass = result ? (prediction.predictedResult === result ? 'hit' : 'miss') : ''
+
+            return (
             <button
-              className={`fixture-card ${prediction.id === selectedPrediction.id ? 'active' : ''}`}
+              className={`fixture-card ${prediction.id === selectedPrediction.id ? 'active' : ''} ${resultClass}`}
               key={prediction.id}
               type="button"
               onClick={() => setSelectedPredictionId(prediction.id)}
@@ -796,7 +800,8 @@ function App() {
                 {prediction.match.status === 'finished' && <em>Finalizado</em>}
               </span>
             </button>
-          ))}
+            )
+          })}
         </aside>
 
         <section className="match-panel" aria-label="Previsao selecionada">
@@ -894,17 +899,30 @@ function App() {
               <strong>{selectedPrediction.expectedTotalGoals} gols · {selectedPrediction.expectedCorners} escanteios</strong>
             </div>
             <div className="markets-list">
-              {selectedMarkets.map((market, index) => (
-                <div className={`market-row edge-${market.edge} ${index === 0 ? 'is-top' : ''}`} key={market.key}>
-                  <span className={`market-cat cat-${market.category}`}>{marketCategoryLabel[market.category]}</span>
-                  <div className="market-body">
-                    <strong>{market.selection}</strong>
-                    <small>{market.detail}</small>
-                    {market.reliability < 0.35 && <small>Base estatistica fraca para esse mercado.</small>}
+              {selectedMarkets.map((market, index) => {
+                const outcome = actualResult(selectedPrediction) ? evaluateMarket(selectedPrediction, market) : null
+                const outcomeClass = outcome === null ? '' : outcome ? 'hit' : 'miss'
+
+                return (
+                  <div
+                    className={`market-row edge-${market.edge} ${index === 0 ? 'is-top' : ''} ${outcomeClass}`}
+                    key={market.key}
+                  >
+                    <span className={`market-cat cat-${market.category}`}>{marketCategoryLabel[market.category]}</span>
+                    <div className="market-body">
+                      <strong>
+                        {market.selection}
+                        {outcome !== null && (
+                          <em className={`market-outcome ${outcomeClass}`}>{outcome ? 'Acertou' : 'Errou'}</em>
+                        )}
+                      </strong>
+                      <small>{market.detail}</small>
+                      {market.reliability < 0.35 && <small>Base estatistica fraca para esse mercado.</small>}
+                    </div>
+                    <b className="market-prob">{market.probability}%</b>
                   </div>
-                  <b className="market-prob">{market.probability}%</b>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
