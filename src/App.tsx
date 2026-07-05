@@ -119,7 +119,26 @@ const parseLine = (selection: string) => {
 }
 
 // Avalia se o mercado recomendado acertou num jogo ja finalizado (com corte temporal honesto)
-const evaluateMarket = (prediction: MatchPrediction, market: MatchPrediction['markets'][number]): boolean | null => {
+// Total real de escanteios do jogo, quando as estatisticas avancadas cobriram a partida.
+const actualCornersTotal = (
+  prediction: MatchPrediction,
+  recordsByTeam: Record<string, TeamMatchRecord[]>,
+): number | null => {
+  const record =
+    (recordsByTeam[prediction.match.homeTeamId] ?? []).find((entry) => entry.matchId === prediction.match.id) ??
+    (recordsByTeam[prediction.match.awayTeamId] ?? []).find((entry) => entry.matchId === prediction.match.id)
+
+  if (!record || typeof record.cornersFor !== 'number' || typeof record.cornersAgainst !== 'number') return null
+  const total = record.cornersFor + record.cornersAgainst
+  // Total 0 quase sempre significa play-by-play indisponivel, nao um jogo sem escanteios.
+  return total > 0 ? total : null
+}
+
+const evaluateMarket = (
+  prediction: MatchPrediction,
+  market: MatchPrediction['markets'][number],
+  actualCorners: number | null = null,
+): boolean | null => {
   const { homeGoals, awayGoals } = prediction.match
   if (typeof homeGoals !== 'number' || typeof awayGoals !== 'number') return null
   const total = homeGoals + awayGoals
@@ -145,7 +164,8 @@ const evaluateMarket = (prediction: MatchPrediction, market: MatchPrediction['ma
     case 'ambas':
       return market.selection.includes('Sim') ? bothScored : !bothScored
     case 'escanteios':
-      return null
+      if (line == null || actualCorners == null) return null
+      return market.selection.startsWith('Mais') ? actualCorners > line : actualCorners < line
     default:
       return null
   }
@@ -898,8 +918,13 @@ function App() {
             </div>
             <div className="markets-list">
               {selectedMarkets.map((market, index) => {
-                const outcome = actualResult(selectedPrediction) ? evaluateMarket(selectedPrediction, market) : null
+                const isFinished = Boolean(actualResult(selectedPrediction))
+                const actualCorners = isFinished
+                  ? actualCornersTotal(selectedPrediction, leagueData?.recordsByTeam ?? {})
+                  : null
+                const outcome = isFinished ? evaluateMarket(selectedPrediction, market, actualCorners) : null
                 const outcomeClass = outcome === null ? '' : outcome ? 'hit' : 'miss'
+                const cornersWithoutData = isFinished && market.category === 'escanteios' && outcome === null
 
                 return (
                   <div
@@ -913,8 +938,15 @@ function App() {
                         {outcome !== null && (
                           <em className={`market-outcome ${outcomeClass}`}>{outcome ? 'Acertou' : 'Errou'}</em>
                         )}
+                        {cornersWithoutData && <em className="market-outcome no-data">Sem validação</em>}
                       </strong>
                       <small>{market.detail}</small>
+                      {market.category === 'escanteios' && outcome !== null && (
+                        <small>Escanteios reais no jogo: {actualCorners}.</small>
+                      )}
+                      {cornersWithoutData && (
+                        <small>Sem dados reais de escanteios para validar este jogo.</small>
+                      )}
                       {market.reliability < 0.35 && <small>Base estatistica fraca para esse mercado.</small>}
                     </div>
                     <b className="market-prob">{market.probability}%</b>
