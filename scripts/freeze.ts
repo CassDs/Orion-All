@@ -1,7 +1,8 @@
 /// <reference types="node" />
-// Executa o congelamento localmente: npm run freeze [filtro-da-liga]
-// Ex.: npm run freeze            -> todas as ligas
-//      npm run freeze serie-d    -> apenas Série D
+// Executa o congelamento localmente: npm run freeze [filtro-da-liga] [--backfill]
+// Ex.: npm run freeze                       -> todas as ligas (só jogos futuros)
+//      npm run freeze serie-d               -> apenas Série D
+//      npm run freeze -- serie-b --backfill -> Série B incluindo rodadas antigas (retroativas, uma vez só)
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,10 +28,12 @@ if (!url || !apiKey) {
   process.exit(1)
 }
 
-const leagueFilter = process.argv[2]
-console.log(`Congelando predicoes${leagueFilter ? ` (filtro: ${leagueFilter})` : ''}...`)
+const args = process.argv.slice(2)
+const includePast = args.includes('--backfill')
+const leagueFilter = args.find((arg) => !arg.startsWith('--'))
+console.log(`Congelando predicoes${leagueFilter ? ` (filtro: ${leagueFilter})` : ''}${includePast ? ' [backfill]' : ''}...`)
 
-const results = await freezeAllLeagues({ url, apiKey }, leagueFilter)
+const results = await freezeAllLeagues({ url, apiKey }, leagueFilter, { includePast })
 console.log(JSON.stringify(results, null, 2))
 
 if (results.some((result) => result.error)) process.exit(1)

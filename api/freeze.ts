@@ -29,7 +29,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const leagueFilter = typeof req.query?.league === 'string' ? req.query.league : undefined
-  const results = await freezeAllLeagues({ url, apiKey }, leagueFilter)
+  const includePast = req.query?.backfill === '1'
+  const results = await freezeAllLeagues({ url, apiKey }, leagueFilter, { includePast })
   const hasError = results.some((result) => result.error)
 
   res.status(hasError ? 207 : 200).json({ ok: !hasError, ranAt: new Date().toISOString(), results })

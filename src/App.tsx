@@ -435,15 +435,17 @@ function App() {
   )
   const selectedPrediction =
     predictions.find((prediction) => prediction.id === selectedPredictionId) ?? visiblePredictions[0] ?? predictions[0]
-  // Acurácia honesta: só conta predições congeladas no servidor ANTES do kickoff.
-  // Predições locais/recalculadas ficam de fora para evitar falso positivo.
+  // Acurácia: só predições congeladas no servidor (imutáveis e iguais para todos).
+  // Inclui as retroativas do backfill (walk-forward com corte temporal); o subtítulo
+  // do KPI mostra quantas foram congeladas antes do kickoff (prova pré-jogo).
   const finishedPredictions = predictions.filter(
+    (prediction) => actualResult(prediction) && prediction.frozenSource === 'server',
+  )
+  const preKickoffFinishedCount = finishedPredictions.filter(
     (prediction) =>
-      actualResult(prediction) &&
-      prediction.frozenSource === 'server' &&
       prediction.frozenAt &&
       new Date(prediction.frozenAt).getTime() < new Date(prediction.match.kickoff).getTime(),
-  )
+  ).length
   const winnerHits = finishedPredictions.filter((prediction) => prediction.predictedResult === actualResult(prediction)).length
   const scoreHits = finishedPredictions.filter(
     (prediction) =>
@@ -623,7 +625,7 @@ function App() {
         <article>
           <span>Acerto histórico</span>
           <strong>{winnerRate}%</strong>
-          <small>{winnerHits}/{finishedPredictions.length} sem dados futuros</small>
+          <small>{winnerHits}/{finishedPredictions.length} · {preKickoffFinishedCount} pré-jogo</small>
         </article>
         <article>
           <span>Acerto placar</span>

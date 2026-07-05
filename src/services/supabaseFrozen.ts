@@ -45,22 +45,31 @@ export const fetchFrozenRows = async (
 }
 
 // Write-once: conflitos de chave são ignorados (nunca sobrescreve predição existente).
+// Inserção em lotes para não estourar o limite de payload (backfill pode ter centenas de linhas).
 export const insertFrozenRows = async (config: SupabaseConfig, rows: FrozenRowInsert[]): Promise<number> => {
   if (rows.length === 0) return 0
 
-  const response = await fetch(`${config.url}/rest/v1/frozen_predictions?on_conflict=storage_key`, {
-    method: 'POST',
-    headers: {
-      ...buildHeaders(config.apiKey),
-      prefer: 'resolution=ignore-duplicates,return=minimal',
-    },
-    body: JSON.stringify(rows),
-  })
+  const CHUNK_SIZE = 40
+  let inserted = 0
 
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`Supabase insert failed: ${response.status} ${detail}`)
+  for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
+    const chunk = rows.slice(start, start + CHUNK_SIZE)
+    const response = await fetch(`${config.url}/rest/v1/frozen_predictions?on_conflict=storage_key`, {
+      method: 'POST',
+      headers: {
+        ...buildHeaders(config.apiKey),
+        prefer: 'resolution=ignore-duplicates,return=minimal',
+      },
+      body: JSON.stringify(chunk),
+    })
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new Error(`Supabase insert failed: ${response.status} ${detail}`)
+    }
+
+    inserted += chunk.length
   }
 
-  return rows.length
+  return inserted
 }

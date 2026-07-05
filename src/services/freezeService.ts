@@ -23,9 +23,14 @@ const currentRoundFrom = (matches: Match[]) => {
 }
 
 // Congela (write-once) as predições dos jogos ainda não iniciados da rodada em foco
-// e da seguinte. Jogos já iniciados/terminados sem predição congelada NUNCA são
-// gerados retroativamente — é isso que garante a auditoria honesta.
-export const freezeLeague = async (league: League365Config, supabase: SupabaseConfig): Promise<FreezeResult> => {
+// e da seguinte. Com `includePast` (backfill único), também congela rodadas antigas —
+// o motor aplica corte temporal (cutoffDate = kickoff), então é walk-forward honesto,
+// e por ser write-once o resultado fica estável para sempre.
+export const freezeLeague = async (
+  league: League365Config,
+  supabase: SupabaseConfig,
+  options: { includePast?: boolean } = {},
+): Promise<FreezeResult> => {
   const data = await fetchLeagueData365(league)
   const currentRound = currentRoundFrom(data.matches)
   const existingKeys = new Set(
@@ -35,9 +40,8 @@ export const freezeLeague = async (league: League365Config, supabase: SupabaseCo
 
   const candidates = data.matches.filter(
     (match) =>
-      match.status === 'scheduled' &&
       match.round <= currentRound + 1 &&
-      new Date(match.kickoff).getTime() > now &&
+      (options.includePast || (match.status === 'scheduled' && new Date(match.kickoff).getTime() > now)) &&
       !existingKeys.has(`${ORION_ENGINE_VERSION}:${match.id}`),
   )
 
@@ -59,14 +63,18 @@ export const freezeLeague = async (league: League365Config, supabase: SupabaseCo
   return { leagueId: league.id, frozen, alreadyFrozen: existingKeys.size }
 }
 
-export const freezeAllLeagues = async (supabase: SupabaseConfig, leagueFilter?: string) => {
+export const freezeAllLeagues = async (
+  supabase: SupabaseConfig,
+  leagueFilter?: string,
+  options: { includePast?: boolean } = {},
+) => {
   const results: FreezeResult[] = []
 
   for (const league of LEAGUES_365) {
     if (leagueFilter && !league.id.includes(leagueFilter)) continue
 
     try {
-      results.push(await freezeLeague(league, supabase))
+      results.push(await freezeLeague(league, supabase, options))
     } catch (error) {
       results.push({
         leagueId: league.id,
