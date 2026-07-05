@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import {
   matches as fallbackMatches,
@@ -8,25 +8,23 @@ import {
 } from './data/serieBMock'
 import { predictMatch } from './domain/prediction'
 import type { Match, MatchPrediction, Team, TeamMatchRecord } from './domain/types'
-import { fetchSerieBData365, type LeagueData } from './services/scores365'
+import { competitionLogoUrl, fetchLeagueData365, LEAGUES_365, type LeagueData } from './services/scores365'
 import { getOrCreateFrozenPredictions } from './services/predictionStore'
 
 const AUTH_FLAG_KEY = 'orion-authenticated'
 const ACCESS_KEYWORD = 'Betania'
 
-const availableLeagues = [
-  {
-    id: fallbackCompetition.id,
-    name: fallbackCompetition.name,
-    country: fallbackCompetition.country,
-    season: fallbackCompetition.season,
-    tagline: 'Temporada completa 2026 com dados 365Scores e predições congeladas',
-    logoUrl: fallbackCompetition.logoUrl ?? '',
-    primaryColor: fallbackCompetition.primaryColor,
-    secondaryColor: fallbackCompetition.secondaryColor,
-    accentColor: fallbackCompetition.accentColor,
-  },
-]
+const availableLeagues = LEAGUES_365.map((league) => ({
+  id: league.id,
+  name: league.name,
+  country: league.country,
+  season: 2026,
+  tagline: league.tagline,
+  logoUrl: competitionLogoUrl(league.scores365Id),
+  primaryColor: league.primaryColor,
+  secondaryColor: league.secondaryColor,
+  accentColor: league.accentColor,
+}))
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'fallback' | 'error'
 
@@ -312,6 +310,7 @@ function App() {
   const [isBetsCollapsed, setIsBetsCollapsed] = useState(false)
   const [loadState, setLoadState] = useState<LoadState>('idle')
   const [syncMessage, setSyncMessage] = useState('Escolha uma liga para iniciar')
+  const activeLeagueRef = useRef('')
 
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -328,6 +327,7 @@ function App() {
 
   const handleLogout = () => {
     window.localStorage.removeItem(AUTH_FLAG_KEY)
+    activeLeagueRef.current = ''
     setSelectedLeagueId('')
     setLeagueData(null)
     setPredictions([])
@@ -335,16 +335,39 @@ function App() {
     setIsAuthenticated(false)
   }
 
+  const handleBackToLeagues = () => {
+    activeLeagueRef.current = ''
+    setSelectedLeagueId('')
+    setLeagueData(null)
+    setPredictions([])
+    setSelectedPredictionId('')
+    setSelectedRound(1)
+    setLoadState('idle')
+    setSyncMessage('Escolha uma liga para iniciar')
+  }
+
   const handleScoresSync = useCallback(async () => {
     if (!selectedLeagueId) return
 
+    const league = LEAGUES_365.find((entry) => entry.id === selectedLeagueId)
+    if (!league) return
+
+    // Limpa dados da liga anterior para nao exibir cache enquanto a nova carrega.
+    activeLeagueRef.current = league.id
+    setLeagueData(null)
+    setPredictions([])
+    setSelectedPredictionId('')
+    setSelectedRound(1)
     setLoadState('loading')
+    setSyncMessage(`Carregando ${league.name}...`)
 
     try {
-      const remoteData = await fetchSerieBData365()
+      const remoteData = await fetchLeagueData365(league)
+      if (activeLeagueRef.current !== league.id) return
       const currentRound = currentRoundFrom(remoteData.matches)
       const scopedMatches = predictionScopeFrom(remoteData.matches, currentRound)
       const frozen = await freezePredictions(scopedMatches, remoteData.teams, remoteData.recordsByTeam, currentRound)
+      if (activeLeagueRef.current !== league.id) return
       const focusedPrediction = frozen.find((prediction) => prediction.match.round === currentRound) ?? frozen[0]
 
       setLeagueData(remoteData)
@@ -354,6 +377,19 @@ function App() {
       setLoadState('ready')
       setSyncMessage(`${remoteData.matches.length} jogos reais carregados da fonte 365Scores. Prevendo R1-R${currentRound}; futuras abrem rodada a rodada.`)
     } catch (error) {
+      if (activeLeagueRef.current !== league.id) return
+      if (league.id !== fallbackCompetition.id) {
+        setLeagueData(null)
+        setPredictions([])
+        setLoadState('error')
+        setSyncMessage(
+          error instanceof Error
+            ? `${error.message}. Sem fallback local para ${league.name}.`
+            : `Falha ao carregar ${league.name}.`,
+        )
+        return
+      }
+
       const currentRound = currentRoundFrom(fallbackLeagueData.matches)
       const scopedMatches = predictionScopeFrom(fallbackLeagueData.matches, currentRound)
       const frozen = await freezePredictions(
@@ -541,7 +577,7 @@ function App() {
     >
       <section className="competition-hero" aria-label="Ambiente da liga">
         <div className="competition-brand">
-          <button className="back-button" type="button" onClick={() => setSelectedLeagueId('')}>Ligas</button>
+          <button className="back-button" type="button" onClick={handleBackToLeagues}>Ligas</button>
           <button className="back-button subtle" type="button" onClick={handleLogout}>Sair</button>
           <span className="competition-logo">{competition.logoUrl && <img src={competition.logoUrl} alt="" />}</span>
           <div>
