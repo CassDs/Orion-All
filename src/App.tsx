@@ -831,11 +831,9 @@ function App() {
               <div>
                 <span>Placar real</span>
                 <strong className="actual-score-inline">
-                  <TeamBadge team={selectedPrediction.home.team} size="sm" />
                   <span>{selectedPrediction.match.homeGoals}</span>
                   <b>-</b>
                   <span>{selectedPrediction.match.awayGoals}</span>
-                  <TeamBadge team={selectedPrediction.away.team} size="sm" />
                 </strong>
               </div>
               <div>
