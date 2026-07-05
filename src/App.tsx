@@ -273,11 +273,13 @@ const buildStandings = (teams: Team[], matches: Match[]): StandingRow[] => {
 }
 
 const freezePredictions = async (
+  leagueId: string,
   matches: Match[],
   teams: Team[],
   recordsByTeam: Record<string, TeamMatchRecord[]>,
   currentRound: number,
 ) => getOrCreateFrozenPredictions(
+  leagueId,
   matches,
   (match) => predictMatch(match, teams, recordsByTeam),
   (match) => match.round <= currentRound,
@@ -366,7 +368,7 @@ function App() {
       if (activeLeagueRef.current !== league.id) return
       const currentRound = currentRoundFrom(remoteData.matches)
       const scopedMatches = predictionScopeFrom(remoteData.matches, currentRound)
-      const frozen = await freezePredictions(scopedMatches, remoteData.teams, remoteData.recordsByTeam, currentRound)
+      const frozen = await freezePredictions(league.id, scopedMatches, remoteData.teams, remoteData.recordsByTeam, currentRound)
       if (activeLeagueRef.current !== league.id) return
       const focusedPrediction = frozen.find((prediction) => prediction.match.round === currentRound) ?? frozen[0]
 
@@ -393,6 +395,7 @@ function App() {
       const currentRound = currentRoundFrom(fallbackLeagueData.matches)
       const scopedMatches = predictionScopeFrom(fallbackLeagueData.matches, currentRound)
       const frozen = await freezePredictions(
+        fallbackCompetition.id,
         scopedMatches,
         fallbackLeagueData.teams,
         fallbackLeagueData.recordsByTeam,
@@ -432,7 +435,15 @@ function App() {
   )
   const selectedPrediction =
     predictions.find((prediction) => prediction.id === selectedPredictionId) ?? visiblePredictions[0] ?? predictions[0]
-  const finishedPredictions = predictions.filter((prediction) => actualResult(prediction))
+  // Acurácia honesta: só conta predições congeladas no servidor ANTES do kickoff.
+  // Predições locais/recalculadas ficam de fora para evitar falso positivo.
+  const finishedPredictions = predictions.filter(
+    (prediction) =>
+      actualResult(prediction) &&
+      prediction.frozenSource === 'server' &&
+      prediction.frozenAt &&
+      new Date(prediction.frozenAt).getTime() < new Date(prediction.match.kickoff).getTime(),
+  )
   const winnerHits = finishedPredictions.filter((prediction) => prediction.predictedResult === actualResult(prediction)).length
   const scoreHits = finishedPredictions.filter(
     (prediction) =>

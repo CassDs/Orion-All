@@ -181,4 +181,8 @@ export type MatchPrediction = {
   expectedCorners: number
   bttsProbability: number
   markets: BettingMarket[]
+  // Congelamento: 'server' = gravado no banco antes do jogo (imutável e auditável);
+  // 'local' = IndexedDB do navegador (apenas cache pessoal).
+  frozenSource?: 'server' | 'local'
+  frozenAt?: string
 }

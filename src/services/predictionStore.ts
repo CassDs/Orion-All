@@ -1,5 +1,6 @@
 import { ORION_ENGINE_VERSION } from '../domain/prediction'
 import type { Match, MatchPrediction } from '../domain/types'
+import { fetchFrozenRows, type FrozenRow, type SupabaseConfig } from './supabaseFrozen'
 
 const DB_NAME = 'orion-prediction-db'
 const DB_VERSION = 1
@@ -59,6 +60,26 @@ export const saveFrozenPrediction = async (prediction: MatchPrediction) => {
   return stored
 }
 
+const clientSupabaseConfig = (): SupabaseConfig | null => {
+  const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const apiKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+  return url && apiKey ? { url, apiKey } : null
+}
+
+// Busca as predições congeladas no servidor (fonte de verdade compartilhada).
+// Falha de rede/config não derruba o app — apenas cai para o fluxo local.
+const fetchServerFrozenMap = async (leagueId: string): Promise<Map<string, FrozenRow>> => {
+  const config = clientSupabaseConfig()
+  if (!config) return new Map()
+
+  try {
+    const rows = await fetchFrozenRows(config, leagueId, ORION_ENGINE_VERSION)
+    return new Map(rows.map((row) => [row.storage_key, row]))
+  } catch {
+    return new Map()
+  }
+}
+
 export const getOrCreateFrozenPrediction = async (
   match: Match,
   createPrediction: () => MatchPrediction,
@@ -69,19 +90,39 @@ export const getOrCreateFrozenPrediction = async (
     return {
       ...stored,
       match,
+      frozenSource: stored.frozenSource ?? 'local',
+      frozenAt: stored.frozenAt ?? stored.generatedAt,
     }
   }
 
-  return saveFrozenPrediction(createPrediction())
+  const prediction = createPrediction()
+  return saveFrozenPrediction({ ...prediction, frozenSource: 'local', frozenAt: prediction.generatedAt })
 }
 
 export const getOrCreateFrozenPredictions = async (
+  leagueId: string,
   matches: Match[],
   createPrediction: (match: Match) => MatchPrediction,
   shouldFreeze: (match: Match) => boolean = () => true,
-) => Promise.all(
-  matches.map((match) => {
-    if (!shouldFreeze(match)) return createPrediction(match)
-    return getOrCreateFrozenPrediction(match, () => createPrediction(match))
-  }),
-)
+) => {
+  const serverRows = await fetchServerFrozenMap(leagueId)
+
+  return Promise.all(
+    matches.map((match) => {
+      const serverRow = serverRows.get(keyFrom(match.id))
+
+      if (serverRow) {
+        // Predição congelada no banco antes do jogo: imutável para todos os visitantes.
+        return Promise.resolve<MatchPrediction>({
+          ...serverRow.payload,
+          match,
+          frozenSource: 'server',
+          frozenAt: serverRow.created_at,
+        })
+      }
+
+      if (!shouldFreeze(match)) return Promise.resolve(createPrediction(match))
+      return getOrCreateFrozenPrediction(match, () => createPrediction(match))
+    }),
+  )
+}
