@@ -31,6 +31,8 @@ const leagueCountries = [...new Set(availableLeagues.map((league) => league.coun
 
 const countryFlags: Record<string, string> = {
   Brasil: '🇧🇷',
+  China: '🇨🇳',
+  Equador: '🇪🇨',
 }
 
 const countryFlag = (country: string) => countryFlags[country] ?? '🌐'

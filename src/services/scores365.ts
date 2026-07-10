@@ -1,9 +1,12 @@
 import type { Competition, Match, Team, TeamMatchRecord } from '../domain/types'
 
 const BASE_URL = 'https://webws.365scores.com/web'
+export const SERIE_A_365_ID = 113
 export const SERIE_B_365_ID = 116
 export const SERIE_C_365_ID = 5518
 export const SERIE_D_365_ID = 5519
+export const CHINA_SUPER_LEAGUE_365_ID = 150
+export const ECUADOR_LIGA_PRO_365_ID = 5062
 const SEASON = 2026
 
 export type League365Config = {
@@ -184,6 +187,17 @@ export const competitionLogoUrl = (scores365Id: number) => imageUrl('Competition
 
 export const LEAGUES_365: League365Config[] = [
   {
+    id: 'brasileirao-serie-a-2026',
+    scores365Id: SERIE_A_365_ID,
+    name: 'Brasileirao Serie A',
+    country: 'Brasil',
+    level: 1,
+    tagline: 'Elite do futebol brasileiro com dados 365Scores',
+    primaryColor: '#009c3b',
+    secondaryColor: '#ffdf00',
+    accentColor: '#002776',
+  },
+  {
     id: 'brasileirao-serie-b-2026',
     scores365Id: SERIE_B_365_ID,
     name: 'Brasileirao Serie B',
@@ -215,6 +229,28 @@ export const LEAGUES_365: League365Config[] = [
     primaryColor: '#0f4c81',
     secondaryColor: '#ffd200',
     accentColor: '#00843d',
+  },
+  {
+    id: 'china-super-league-2026',
+    scores365Id: CHINA_SUPER_LEAGUE_365_ID,
+    name: 'Super League China',
+    country: 'China',
+    level: 1,
+    tagline: 'Primeira divisão chinesa 2026 com dados 365Scores',
+    primaryColor: '#de2910',
+    secondaryColor: '#ffde00',
+    accentColor: '#8a1508',
+  },
+  {
+    id: 'ecuador-liga-pro-2026',
+    scores365Id: ECUADOR_LIGA_PRO_365_ID,
+    name: 'LigaPro Equador',
+    country: 'Equador',
+    level: 1,
+    tagline: 'Campeonato equatoriano 2026 com dados 365Scores',
+    primaryColor: '#ffd100',
+    secondaryColor: '#0072ce',
+    accentColor: '#ef3340',
   },
 ]
 
